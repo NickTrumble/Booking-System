@@ -1,8 +1,9 @@
+import org.sqlite.jdbc4.JDBC4PreparedStatement;
+
+import javax.imageio.plugins.jpeg.JPEGImageReadParam;
 import javax.swing.*;
 import java.awt.*;
 import java.sql.*;
-import java.util.Collection;
-import java.util.Dictionary;
 import java.util.HashSet;
 
 public class Main {
@@ -93,7 +94,7 @@ public class Main {
 
             if (result){
                 goToForm(loginFrame, MainFrame);
-                selectedSeats = new HashSet<String>();
+                selectedSeats = new HashSet<>();
 
                 MainFrame.setTitle("Booking System: " + room.name + ", " + room.location);
 
@@ -116,6 +117,8 @@ public class Main {
             for (String seat : selectedSeats){
                 string.append(" ").append(seat).append(",");
             }
+
+            Database.updateBookedSeats(selectedSeats);
             JTextArea seatListings = new JTextArea(string.toString());
             seatListings.setBounds(0, 0, 260, 70);
             seatListings.setEditable(false);
@@ -123,6 +126,8 @@ public class Main {
             seatListings.setWrapStyleWord(true);
             bookedSeatsFrame.add(seatListings);
             bookedSeatsFrame.setVisible(true);
+
+
         });
 
         introFrame.setVisible(true);
@@ -144,13 +149,15 @@ class Establishment{
     public int capacity;
     public int rows;
     public JButton[][] seats;
+    public int ID;
 
 
-    public Establishment(String name, String location, int capacity, int rows){
+    public Establishment(String name, String location, int capacity, int rows, int ID){
         this.name = name;
         this.location = location;
         this.capacity = capacity;
         this.rows = rows;
+        this.ID = ID;
 
         seats = new JButton[10][rows];
     }
@@ -208,6 +215,7 @@ class Database{
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "username TEXT UNIQUE, " +
                 "password TEXT, " +
+                "establishmentID INTEGER, " +
                 "FOREIGN KEY (establishmentID) REFERENCES Establishments(establishmentID))",
 
                 "CREATE TABLE IF NOT EXISTS Seats (" +
@@ -264,7 +272,8 @@ class Database{
 
                 ResultSet establishmentSet = preparedStatement.executeQuery();
                 Main.room = new Establishment(establishmentSet.getString(2),
-                        establishmentSet.getString(3), establishmentSet.getInt(3), 10);
+                        establishmentSet.getString(3), establishmentSet.getInt(3),
+                        10, establishmentSet.getInt(1));
 
                 return true;
 
@@ -273,5 +282,26 @@ class Database{
             e.printStackTrace();
             return false;
         }
+    }
+
+    public static void updateBookedSeats(HashSet<String> seats){
+        for (String seat : seats){
+            String sql = "INSERT INTO Seats (establishmentID, seatrow, seatcol, reserved) " +
+                    "VALUES (?, ?, ?, 1) " +
+                    "ON CONFLICT(establishmentID, seatrow, seatcol) DO UPDATE SET " +
+                    "reserved = excluded.reserved";
+            try(Connection connection = getConnection();
+            PreparedStatement preparedStatement = connection.prepareStatement(sql)){
+                preparedStatement.setInt(1, Main.room.ID);
+                preparedStatement.setString(2, seat.substring(0, 1));
+                preparedStatement.setString(3, seat.substring(1));
+
+                preparedStatement.execute();
+            }
+            catch (SQLException e){
+                e.printStackTrace();
+            }
+        }
+
     }
 }
