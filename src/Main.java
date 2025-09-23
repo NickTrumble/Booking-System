@@ -1,6 +1,3 @@
-import org.sqlite.jdbc4.JDBC4PreparedStatement;
-
-import javax.imageio.plugins.jpeg.JPEGImageReadParam;
 import javax.swing.*;
 import java.awt.*;
 import java.sql.*;
@@ -17,9 +14,10 @@ public class Main {
      */
 
 
-
+    public static HashSet<String> bookedSeats;
     public static Establishment room;
     public static HashSet<String> selectedSeats;
+    public static JPanel chairPanel;
     public static void main(String[] args) {
         Database.init();
 
@@ -34,7 +32,6 @@ public class Main {
         JButton LoginButton = new JButton("Login");
         LoginButton.setBounds(125, 25, 150, 25);
         introFrame.add(LoginButton);
-
 
 
         //second form
@@ -84,6 +81,10 @@ public class Main {
         bookButton.setBounds(752, 601, 230, 158);
         MainFrame.add(bookButton);
 
+        JButton clearBookingsButton = new JButton("Clear all bookings");
+        clearBookingsButton.setBounds(752, 449, 230, 150);
+        MainFrame.add(clearBookingsButton);
+
         //event listeners
         LoginButton.addActionListener(e -> goToForm(introFrame, loginFrame));
         backButton.addActionListener(e -> goToForm(loginFrame, introFrame));
@@ -94,14 +95,7 @@ public class Main {
 
             if (result){
                 goToForm(loginFrame, MainFrame);
-                selectedSeats = new HashSet<>();
-
-                MainFrame.setTitle("Booking System: " + room.name + ", " + room.location);
-
-                JPanel chairPanel = room.getSeatPanel();
-
-                chairPanel.setBounds(250, 360, 500, 400);
-                MainFrame.add(chairPanel);
+                refreshMainPage(MainFrame);
             }
 
         });
@@ -129,6 +123,10 @@ public class Main {
 
 
         });
+        clearBookingsButton.addActionListener(e -> {
+            Database.deleteSeatBookings();
+            refreshMainPage(MainFrame);
+        });
 
         introFrame.setVisible(true);
     }
@@ -137,11 +135,18 @@ public class Main {
         original.setVisible(false);
         newFrame.setVisible(true);
     }
+
+    public static void refreshMainPage(JFrame MainFrame){
+        selectedSeats = new HashSet<>();
+        bookedSeats = Database.parseBookedSeats();
+
+        MainFrame.setTitle("Booking System: " + room.name + ", " + room.location);
+
+        chairPanel = room.getSeatPanel();
+        chairPanel.setBounds(250, 360, 500, 400);
+        MainFrame.add(chairPanel);
+    }
 }
-
-//after authenticating, register all data in the establishment class and the worker class can come back with a hierarchy level?
-
-
 
 class Establishment{
     public String name;
@@ -171,11 +176,16 @@ class Establishment{
 
                 JButton chair = new JButton(i + "" + j);
 
+                if (Main.bookedSeats.contains(i + "" + j))
+                    chair.setBackground(Color.GRAY);
+                else
+                    chair.setBackground(Color.lightGray);
+
                 chair.addActionListener(e ->{
                     if (chair.getBackground() == Color.pink){
-                        chair.setBackground(null);
+                        chair.setBackground(Color.lightGray);
                     }
-                    else {
+                    else if (chair.getBackground() == Color.lightGray){
                         chair.setBackground(Color.pink);
                     }
                 });
@@ -199,6 +209,7 @@ class Establishment{
 
         return selectedSeats;
     }
+
 
 }
 
@@ -301,6 +312,48 @@ class Database{
             catch (SQLException e){
                 e.printStackTrace();
             }
+        }
+
+    }
+
+    public static HashSet<String> parseBookedSeats(){
+        HashSet<String> bookedSeats = new HashSet<>();
+
+        String sql = "SELECT seatrow, seatcol " +
+                "FROM Seats " +
+                "WHERE reserved = 1";
+
+        try (Connection connection = getConnection();
+        PreparedStatement preparedStatement = connection.prepareStatement(sql))
+        {
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while(resultSet.next()){
+                int row = resultSet.getInt("seatrow");
+                int col = resultSet.getInt("seatcol");
+
+                bookedSeats.add(row + "" + col);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return bookedSeats;
+    }
+
+    public static void deleteSeatBookings(){
+        String sql = "DELETE FROM Seats";
+        try(Connection connection = getConnection();
+        PreparedStatement preparedStatement = connection.prepareStatement(sql)){
+            preparedStatement.execute();
+
+            for (Component component : Main.chairPanel.getComponents()){
+                if (component instanceof JButton button) {
+                    button.setBackground(Color.lightGray);
+                }
+            }
+
+        }
+        catch (SQLException e){
+            e.printStackTrace();
         }
 
     }
