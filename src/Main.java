@@ -21,6 +21,7 @@ public class Main {
     public static void main(String[] args) {
         Database.init();
 
+
         //Beginning form
         JFrame introFrame = new JFrame("Booking System");
         introFrame.setSize(400, 100);
@@ -95,7 +96,16 @@ public class Main {
 
             if (result){
                 goToForm(loginFrame, MainFrame);
-                refreshMainPage(MainFrame);
+                //refreshMainPage(MainFrame);
+
+                selectedSeats = new HashSet<>();
+                bookedSeats = Database.parseBookedSeats();
+
+                MainFrame.setTitle("Booking System: " + room.name + ", " + room.location);
+
+                chairPanel = room.getSeatPanel();
+                chairPanel.setBounds(250, 360, 500, 400);
+                MainFrame.add(chairPanel);
             }
 
         });
@@ -104,7 +114,6 @@ public class Main {
             bookedSeatsFrame.setSize(270, 100);
             bookedSeatsFrame.setLayout(null);
             bookedSeatsFrame.setLocationRelativeTo(null);
-
             selectedSeats = room.parseSelectedSeats();
 
             StringBuilder string = new StringBuilder("Booking seats:");
@@ -114,18 +123,24 @@ public class Main {
 
             Database.updateBookedSeats(selectedSeats);
             JTextArea seatListings = new JTextArea(string.toString());
-            seatListings.setBounds(0, 0, 260, 70);
+            seatListings.setBounds(0, 0, 260, 30);
             seatListings.setEditable(false);
             seatListings.setLineWrap(true);
             seatListings.setWrapStyleWord(true);
+            seatListings.setBackground(bookedSeatsFrame.getBackground());
             bookedSeatsFrame.add(seatListings);
             bookedSeatsFrame.setVisible(true);
 
+            JButton okButton = new JButton("Okay");
+            okButton.setBounds(90, 37 , 75, 20);
+            bookedSeatsFrame.add(okButton);
 
+
+            okButton.addActionListener(f -> bookedSeatsFrame.setVisible(false));
         });
         clearBookingsButton.addActionListener(e -> {
             Database.deleteSeatBookings();
-            refreshMainPage(MainFrame);
+            refreshMainPage();
         });
 
         introFrame.setVisible(true);
@@ -136,15 +151,21 @@ public class Main {
         newFrame.setVisible(true);
     }
 
-    public static void refreshMainPage(JFrame MainFrame){
+    public static void refreshMainPage(){
         selectedSeats = new HashSet<>();
         bookedSeats = Database.parseBookedSeats();
 
-        MainFrame.setTitle("Booking System: " + room.name + ", " + room.location);
 
-        chairPanel = room.getSeatPanel();
-        chairPanel.setBounds(250, 360, 500, 400);
-        MainFrame.add(chairPanel);
+        for (Component component : chairPanel.getComponents()){
+            if (component instanceof JButton button){
+                if (bookedSeats.contains(button.getText())){
+                    button.setBackground(Color.gray);
+                }
+                else {
+                    button.setBackground(Color.lightGray);
+                }
+            }
+        }
     }
 }
 
@@ -212,7 +233,6 @@ class Establishment{
 
 
 }
-
 
 class Database{
     private static final String fileURL = "jdbc:sqlite:bookings.db";
@@ -312,6 +332,9 @@ class Database{
             catch (SQLException e){
                 e.printStackTrace();
             }
+
+
+            Main.room.seats[Integer.parseInt(seat.substring(0, 1))][Integer.parseInt(seat.substring(1))].setBackground(Color.gray);
         }
 
     }
@@ -345,11 +368,11 @@ class Database{
         PreparedStatement preparedStatement = connection.prepareStatement(sql)){
             preparedStatement.execute();
 
-            for (Component component : Main.chairPanel.getComponents()){
-                if (component instanceof JButton button) {
-                    button.setBackground(Color.lightGray);
-                }
-            }
+//            for (Component component : Main.chairPanel.getComponents()){
+//                if (component instanceof JButton button) {
+//                    button.setBackground(Color.lightGray);
+//                }
+//            }
 
         }
         catch (SQLException e){
